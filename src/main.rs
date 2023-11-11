@@ -6,41 +6,32 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, sprite_movement)
+        .add_systems(Update, piece_movement)
         .run();
 }
 
 #[derive(Component)]
-enum Direction {
-    Up,
-    Down,
+enum Piece {
+    Red,
+    Blue,
+    Purple,
+    Green,
 }
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>) {
     commands.spawn(Camera2dBundle::default());
     commands.spawn((
+        Piece::Red,
         SpriteBundle {
             texture: asset_server.load("sprites/red.png"),
             transform: Transform::from_xyz(100., 0., 0.),
             ..default()
-        },
-        Direction::Up,
+        }
     ));
 }
 
-/// The sprite is animated by changing its translation depending on the time that has passed since
-/// the last frame.
-fn sprite_movement(time: Res<Time>, mut sprite_position: Query<(&mut Direction, &mut Transform)>) {
-    for (mut logo, mut transform) in &mut sprite_position {
-        match *logo {
-            Direction::Up => transform.translation.y += 150. * time.delta_seconds(),
-            Direction::Down => transform.translation.y -= 150. * time.delta_seconds(),
-        }
-
-        if transform.translation.y > 200. {
-            *logo = Direction::Down;
-        } else if transform.translation.y < -200. {
-            *logo = Direction::Up;
-        }
+fn piece_movement(time: Res<Time>, mut sprite_position: Query<(&mut Piece, &mut Transform)>) {
+    for (_, mut transform) in &mut sprite_position {
+        transform.translation.y -= 150. * time.delta_seconds();
     }
 }
