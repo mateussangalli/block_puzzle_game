@@ -1,9 +1,7 @@
 //! Renders a 2D scene containing a single, moving sprite.
 
-use std::task::Wake;
-
 use bevy::prelude::*;
-use rand::{prelude::StdRng, SeedableRng, RngCore};
+use rand::{prelude::StdRng, RngCore, SeedableRng};
 
 // TODO: implement falling
 // TODO: implement board structure
@@ -13,12 +11,14 @@ const RED: Color = Color::rgb(1., 0., 0.);
 const BLUE: Color = Color::rgb(0., 0., 1.);
 const GREEN: Color = Color::rgb(0., 1., 0.);
 const PURPLE: Color = Color::rgb(0.5, 0., 0.5);
+const DOWNWARD_SPEED: f32 = 10.;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, generate_next_piece)
+        .add_systems(PostStartup, generate_next_piece)
+        .add_systems(Update, update_falling_pair)
         .run();
 }
 
@@ -45,7 +45,9 @@ impl Piece {
 struct FallingPair;
 
 #[derive(Component)]
-struct Bag { rng: StdRng }
+struct Bag {
+    rng: StdRng,
+}
 
 impl Bag {
     fn new() -> Self {
@@ -61,8 +63,27 @@ impl Bag {
             1 => Piece::Blue,
             2 => Piece::Purple,
             3 => Piece::Green,
-            _ => panic!()
+            _ => panic!(),
         }
+    }
+
+    fn spawn_piece(&mut self, builder: &mut ChildBuilder, position: Vec3) {
+        let piece = self.next_piece();
+        builder.spawn((
+            SpriteBundle {
+                sprite: Sprite {
+                    color: piece.get_color(),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: position,
+                    scale: Vec3::new(PIECE_SIZE, PIECE_SIZE, 1.0),
+                    ..default()
+                },
+                ..default()
+            },
+            piece,
+        ));
     }
 }
 
@@ -70,54 +91,31 @@ fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
     commands.spawn(Bag::new());
+    println!("TT");
 }
 
 fn generate_next_piece(mut commands: Commands, mut query: Query<&mut Bag>) {
-    for mut bag in &mut query {
-        let left_piece = bag.next_piece();
-        let right_piece = bag.next_piece();
+    dbg!(&query);
+    let mut bag = query.single_mut();
+    println!("spawn");
+    commands
+        .spawn((
+            SpatialBundle {
+                transform: Transform::IDENTITY,
+                ..default()
+            },
+            FallingPair,
+        ))
+        .with_children(|parent| {
+            bag.spawn_piece(parent, Vec3::new(-PIECE_SIZE, 0., 0.));
+            bag.spawn_piece(parent, Vec3::new(0., 0., 0.));
+        });
+    
+}
 
-        commands
-            .spawn((
-                FallingPair,
-                SpatialBundle {
-                    transform: Transform::IDENTITY,
-                    ..default()
-                }
-            ))
-            .with_children(|parent| {
-                parent.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: left_piece.get_color(),
-                            ..default()
-                        },
-                        transform: Transform {
-                            translation: Vec3::new(-PIECE_SIZE, 0., 0.),
-                            scale: Vec3::new(PIECE_SIZE, PIECE_SIZE, 1.0),
-                            ..default()
-                        },
-                        ..default()
-                    },
-                    left_piece,
-                ));
-        
-                parent.spawn((
-                    SpriteBundle {
-                        sprite: Sprite {
-                            color: right_piece.get_color(),
-                            ..default()
-                        },
-                        transform: Transform {
-                            translation: Vec3::new(0., 0., 0.),
-                            scale: Vec3::new(PIECE_SIZE, PIECE_SIZE, 1.0),
-                            ..default()
-                        },
-                        ..default()
-                    },
-                    right_piece,
-                ));
-            });
-
+fn update_falling_pair(mut query: Query<(&mut Transform, &FallingPair)>, time: Res<Time>) {
+    if let Some((mut transform, falling_pair)) = query.iter_mut().next() {
+        transform.translation.y -= DOWNWARD_SPEED * time.delta_seconds();
     }
+
 }
