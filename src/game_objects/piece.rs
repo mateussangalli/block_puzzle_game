@@ -1,7 +1,10 @@
 use bevy::prelude::*;
 use rand::{rngs::StdRng, SeedableRng, RngCore};
 
+use crate::game_objects::movement::Fall;
+
 const PIECE_SIZE: f32 = 32.;
+const PIECE_FALL_SPEED: f32 = 100.;
 
 const RED: Color = Color::rgb(1., 0., 0.);
 const BLUE: Color = Color::rgb(0., 0., 1.);
@@ -26,9 +29,6 @@ impl PieceColor {
         }
     }
 }
-
-#[derive(Component)]
-pub struct Fall;
 
 
 #[derive(Bundle)]
@@ -78,7 +78,7 @@ impl Bag {
                 },
                 ..default()
             },
-            fall: Fall
+            fall: Fall::new(PIECE_FALL_SPEED)
         }
     }
 }
