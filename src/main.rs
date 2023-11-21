@@ -6,6 +6,8 @@ use game_objects::piece::Bag;
 use game_objects::movement::update_fall;
 use game_objects::wall::{WallBundle, WallLocation};
 
+use crate::game_objects::{piece::check_for_collisions};
+
 
 
 fn main() {
@@ -14,6 +16,7 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(PostStartup, generate_next_piece)
         .add_systems(Update, update_fall)
+        .add_systems(Update, check_for_collisions)
         .run();
 }
 

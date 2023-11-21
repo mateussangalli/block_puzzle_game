@@ -1,7 +1,8 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, math::vec2, sprite::collide_aabb::Collision};
+use bevy::sprite::collide_aabb::collide;
 use rand::{rngs::StdRng, SeedableRng, RngCore};
 
-use crate::game_objects::movement::Fall;
+use crate::game_objects::movement::{Fall, Collider};
 
 const PIECE_SIZE: f32 = 32.;
 const PIECE_FALL_SPEED: f32 = 100.;
@@ -30,13 +31,17 @@ impl PieceColor {
     }
 }
 
+#[derive(Component)]
+pub struct Piece;
 
 #[derive(Bundle)]
 pub struct PieceBundle {
     color: PieceColor,
     sprite_bundle: SpriteBundle,
-    fall: Fall
+    fall: Fall,
+    piece: Piece
 }
+
 
 
 #[derive(Component)]
@@ -78,8 +83,28 @@ impl Bag {
                 },
                 ..default()
             },
-            fall: Fall::new(PIECE_FALL_SPEED)
+            fall: Fall::new(PIECE_FALL_SPEED),
+            piece: Piece
         }
     }
 }
 
+pub fn check_for_collisions(
+    mut fall_query: Query<(&Transform, &mut Fall), With<Piece>>,
+    collider_query: Query<&Transform, With<Collider>>,
+) {
+    for (fall_transform, mut fall) in fall_query.iter_mut() {
+        for collider_transform in collider_query.iter() {
+            let collision = collide(
+                fall_transform.translation,
+                vec2(fall_transform.scale.x, fall_transform.scale.y),
+                collider_transform.translation,
+                vec2(collider_transform.scale.x, collider_transform.scale.y),
+            );
+    
+            if let Some(Collision::Top) = collision {
+                fall.stop();
+            }
+        }
+    }
+}
