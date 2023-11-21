@@ -29,6 +29,12 @@ impl Fall {
 #[derive(Component)]
 pub struct Collider;
 
+#[derive(Event)]
+pub enum CollisionEvent {
+    CurrentPiece,
+    Other
+}
+
 pub fn update_fall(mut query: Query<(&mut Transform, &Fall)>, time: Res<Time>) {
     for (mut transform, fall) in query.iter_mut() {
         if !fall.frozen {

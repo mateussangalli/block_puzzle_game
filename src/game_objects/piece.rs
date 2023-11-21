@@ -1,8 +1,10 @@
-use bevy::{prelude::*, math::vec2, sprite::collide_aabb::Collision};
+use std::task::Wake;
+
+use bevy::{prelude::*, math::{vec2, vec3}, sprite::collide_aabb::Collision};
 use bevy::sprite::collide_aabb::collide;
 use rand::{rngs::StdRng, SeedableRng, RngCore};
 
-use crate::game_objects::movement::{Fall, Collider};
+use crate::game_objects::movement::{Fall, Collider, CollisionEvent};
 
 const PIECE_SIZE: f32 = 32.;
 const PIECE_FALL_SPEED: f32 = 100.;
@@ -31,15 +33,25 @@ impl PieceColor {
     }
 }
 
-#[derive(Component)]
-pub struct Piece;
+#[derive(Component, Debug)]
+pub enum Piece {
+    Active,
+    Inactive
+}
+
+impl Piece {
+    fn set_inactive(&mut self) {
+        *self = Piece::Inactive;
+    }
+}
 
 #[derive(Bundle)]
 pub struct PieceBundle {
     color: PieceColor,
     sprite_bundle: SpriteBundle,
     fall: Fall,
-    piece: Piece
+    piece: Piece,
+    collider: Collider
 }
 
 
@@ -84,16 +96,18 @@ impl Bag {
                 ..default()
             },
             fall: Fall::new(PIECE_FALL_SPEED),
-            piece: Piece
+            piece: Piece::Active,
+            collider: Collider,
         }
     }
 }
 
 pub fn check_for_collisions(
-    mut fall_query: Query<(&Transform, &mut Fall), With<Piece>>,
+    mut fall_query: Query<(&Transform, &mut Fall, &Piece)>,
     collider_query: Query<&Transform, With<Collider>>,
+    mut collision_event: EventWriter<CollisionEvent>,
 ) {
-    for (fall_transform, mut fall) in fall_query.iter_mut() {
+    for (i, (fall_transform, mut fall, piece)) in fall_query.iter_mut().enumerate() {
         for collider_transform in collider_query.iter() {
             let collision = collide(
                 fall_transform.translation,
@@ -104,7 +118,29 @@ pub fn check_for_collisions(
     
             if let Some(Collision::Top) = collision {
                 fall.stop();
+                if let Piece::Active = piece {
+                    collision_event.send(CollisionEvent::CurrentPiece);
+                } 
             }
+        }
+    }
+}
+
+pub fn current_piece_stopped(
+    mut commands: Commands,
+    mut event_reader: EventReader<CollisionEvent>,
+    mut query_bag: Query<&mut Bag>,
+    mut query_piece: Query<&mut Piece>,
+) {
+    for event in event_reader.read() {
+        if let CollisionEvent::CurrentPiece = event {
+            for mut piece in query_piece.iter_mut() {
+                if let Piece::Active = *piece {
+                    piece.set_inactive();
+                }
+            }
+            let mut bag = query_bag.single_mut(); 
+            commands.spawn(bag.new_piece(vec3(0., 200., 0.)));
         }
     }
 }
