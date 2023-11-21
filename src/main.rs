@@ -5,9 +5,11 @@ use bevy::{math::vec3, prelude::*};
 
 use game_objects::{
     movement::{update_fall, CollisionEvent},
-    piece::{check_for_collisions, current_piece_stopped, Bag},
+    piece::{check_for_collisions, current_piece_stopped, Bag, move_active_piece},
     wall::{WallBundle, WallLocation},
 };
+
+use crate::game_objects::piece::Controllable;
 
 fn main() {
     App::new()
@@ -15,7 +17,16 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(PostStartup, generate_next_piece)
         .add_event::<CollisionEvent>()
-        .add_systems(FixedUpdate, (update_fall, check_for_collisions, current_piece_stopped).chain())
+        .add_systems(
+            FixedUpdate,
+            (
+                move_active_piece,
+                update_fall,
+                check_for_collisions,
+                current_piece_stopped,
+            )
+                .chain(),
+        )
         .run();
 }
 
@@ -34,5 +45,5 @@ fn setup(mut commands: Commands) {
 
 fn generate_next_piece(mut commands: Commands, mut query: Query<&mut Bag>) {
     let mut bag = query.single_mut();
-    commands.spawn(bag.new_piece(vec3(0., 200., 0.)));
+    commands.spawn((bag.new_piece(vec3(0., 200., 0.)), Controllable::new()));
 }

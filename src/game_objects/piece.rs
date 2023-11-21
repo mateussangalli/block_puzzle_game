@@ -7,7 +7,8 @@ use rand::{rngs::StdRng, SeedableRng, RngCore};
 use crate::game_objects::movement::{Fall, Collider, CollisionEvent};
 
 const PIECE_SIZE: f32 = 32.;
-const PIECE_FALL_SPEED: f32 = 100.;
+const PIECE_FALL_SPEED: f32 = 150.;
+const PIECE_LATERAL_SPEED: f32 = 400.;
 
 const RED: Color = Color::rgb(1., 0., 0.);
 const BLUE: Color = Color::rgb(0., 0., 1.);
@@ -34,14 +35,17 @@ impl PieceColor {
 }
 
 #[derive(Component, Debug)]
-pub enum Piece {
-    Active,
-    Inactive
+pub struct Piece;
+
+#[derive(Component)]
+pub struct Controllable {
+    stuck_left: bool,
+    stuck_right: bool
 }
 
-impl Piece {
-    fn set_inactive(&mut self) {
-        *self = Piece::Inactive;
+impl Controllable {
+    pub fn new() -> Self {
+        Self {stuck_left: false, stuck_right: false}
     }
 }
 
@@ -96,18 +100,22 @@ impl Bag {
                 ..default()
             },
             fall: Fall::new(PIECE_FALL_SPEED),
-            piece: Piece::Active,
+            piece: Piece,
             collider: Collider,
         }
     }
 }
 
 pub fn check_for_collisions(
-    mut fall_query: Query<(&Transform, &mut Fall, &Piece)>,
+    mut fall_query: Query<(&Transform, &mut Fall, Option<&mut Controllable>)>,
     collider_query: Query<&Transform, With<Collider>>,
     mut collision_event: EventWriter<CollisionEvent>,
 ) {
-    for (i, (fall_transform, mut fall, piece)) in fall_query.iter_mut().enumerate() {
+    for (fall_transform, mut fall, mut maybe_controllable) in fall_query.iter_mut() {
+        if let Some(ref mut controllable) = maybe_controllable {
+            controllable.stuck_right = false;
+            controllable.stuck_left = false;
+        } 
         for collider_transform in collider_query.iter() {
             let collision = collide(
                 fall_transform.translation,
@@ -116,11 +124,28 @@ pub fn check_for_collisions(
                 vec2(collider_transform.scale.x, collider_transform.scale.y),
             );
     
+            if let Some(collision) = collision {
+                match collision {
+                    Collision::Top => {
+                        fall.stop();
+                        if let Some(_) = maybe_controllable {
+                            collision_event.send(CollisionEvent::CurrentPiece);
+                        } 
+                    }
+                    Collision::Left => {
+                        if let Some(ref mut controllable) = maybe_controllable {
+                            controllable.stuck_right = true;
+                        } 
+                    }
+                    Collision::Right => {
+                        if let Some(ref mut controllable) = maybe_controllable {
+                            controllable.stuck_left = true;
+                        } 
+                    }
+                    _ => ()
+                }
+            }
             if let Some(Collision::Top) = collision {
-                fall.stop();
-                if let Piece::Active = piece {
-                    collision_event.send(CollisionEvent::CurrentPiece);
-                } 
             }
         }
     }
@@ -130,17 +155,34 @@ pub fn current_piece_stopped(
     mut commands: Commands,
     mut event_reader: EventReader<CollisionEvent>,
     mut query_bag: Query<&mut Bag>,
-    mut query_piece: Query<&mut Piece>,
+    mut query_active: Query<(Entity, &mut Controllable)>,
 ) {
+    let mut flag = false;
     for event in event_reader.read() {
         if let CollisionEvent::CurrentPiece = event {
-            for mut piece in query_piece.iter_mut() {
-                if let Piece::Active = *piece {
-                    piece.set_inactive();
-                }
-            }
-            let mut bag = query_bag.single_mut(); 
-            commands.spawn(bag.new_piece(vec3(0., 200., 0.)));
+            flag = true;
         }
+    }
+    if flag {
+        let (active_entity, _) = query_active.single_mut(); 
+        commands.entity(active_entity).remove::<Controllable>();
+        let mut bag = query_bag.single_mut(); 
+        commands.spawn((bag.new_piece(vec3(0., 200., 0.)), Controllable::new()));
+    }
+}
+
+pub fn move_active_piece(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query_active_piece: Query<(&mut Transform, &mut Controllable)>,
+    time: Res<Time>,
+) {
+    let (mut transform, mut controllable) = query_active_piece.single_mut();
+    if keyboard_input.pressed(KeyCode::Left) && !controllable.stuck_left {
+        transform.translation.x -= PIECE_LATERAL_SPEED * time.delta_seconds();
+        controllable.stuck_right = false;
+    }
+    if keyboard_input.pressed(KeyCode::Right) && !controllable.stuck_right {
+        transform.translation.x += PIECE_LATERAL_SPEED * time.delta_seconds();
+        controllable.stuck_left = false;
     }
 }
