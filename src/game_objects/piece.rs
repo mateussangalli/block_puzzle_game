@@ -4,7 +4,7 @@ use bevy::{prelude::*, math::{vec2, vec3}, sprite::collide_aabb::Collision};
 use bevy::sprite::collide_aabb::collide;
 use rand::{rngs::StdRng, SeedableRng, RngCore};
 
-use crate::game_objects::movement::{Fall, Collider, CollisionEvent};
+use crate::game_objects::movement::{Fall, Collider, CollisionEvent, FallState};
 
 const PIECE_SIZE: f32 = 32.;
 const PIECE_FALL_SPEED: f32 = 150.;
@@ -127,7 +127,7 @@ pub fn check_for_collisions(
             if let Some(collision) = collision {
                 match collision {
                     Collision::Top => {
-                        fall.stop();
+                        fall.state = FallState::Stopped;
                         if let Some(_) = maybe_controllable {
                             collision_event.send(CollisionEvent::CurrentPiece);
                         } 
@@ -173,10 +173,10 @@ pub fn current_piece_stopped(
 
 pub fn move_active_piece(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query_active_piece: Query<(&mut Transform, &mut Controllable)>,
+    mut query_active_piece: Query<(&mut Transform, &mut Controllable, &mut Fall)>,
     time: Res<Time>,
 ) {
-    let (mut transform, mut controllable) = query_active_piece.single_mut();
+    let (mut transform, mut controllable, mut fall) = query_active_piece.single_mut();
     if keyboard_input.pressed(KeyCode::Left) && !controllable.stuck_left {
         transform.translation.x -= PIECE_LATERAL_SPEED * time.delta_seconds();
         controllable.stuck_right = false;
@@ -184,5 +184,10 @@ pub fn move_active_piece(
     if keyboard_input.pressed(KeyCode::Right) && !controllable.stuck_right {
         transform.translation.x += PIECE_LATERAL_SPEED * time.delta_seconds();
         controllable.stuck_left = false;
+    }
+    if keyboard_input.pressed(KeyCode::Down) {
+        fall.state = FallState::Fast;
+    } else {
+        fall.state = FallState::Normal;
     }
 }
