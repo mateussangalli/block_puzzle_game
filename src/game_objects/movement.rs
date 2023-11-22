@@ -30,9 +30,15 @@ impl Fall {
 pub struct Collider;
 
 #[derive(Event)]
-pub enum CollisionEvent {
-    CurrentPiece,
-    Other
+pub struct CollisionEvent {
+    pub entity: Entity,
+    pub offset: Vec3,
+}
+
+impl CollisionEvent {
+    pub fn new(entity: Entity, offset: Vec3) -> Self {
+        Self {entity, offset}
+    }
 }
 
 pub fn update_fall(mut query: Query<(&mut Transform, &Fall)>, time: Res<Time>) {

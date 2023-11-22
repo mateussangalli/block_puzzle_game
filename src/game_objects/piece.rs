@@ -1,10 +1,14 @@
 use std::task::Wake;
 
-use bevy::{prelude::*, math::{vec2, vec3}, sprite::collide_aabb::Collision};
 use bevy::sprite::collide_aabb::collide;
-use rand::{rngs::StdRng, SeedableRng, RngCore};
+use bevy::{
+    math::{vec2, vec3},
+    prelude::*,
+    sprite::collide_aabb::Collision,
+};
+use rand::{rngs::StdRng, RngCore, SeedableRng};
 
-use crate::game_objects::movement::{Fall, Collider, CollisionEvent, FallState};
+use crate::game_objects::movement::{Collider, CollisionEvent, Fall, FallState};
 
 const PIECE_SIZE: f32 = 32.;
 const PIECE_FALL_SPEED: f32 = 150.;
@@ -40,12 +44,18 @@ pub struct Piece;
 #[derive(Component)]
 pub struct Controllable {
     stuck_left: bool,
-    stuck_right: bool
+    stuck_right: bool,
 }
+
+#[derive(Event, Default)]
+pub struct NextPieceEvent;
 
 impl Controllable {
     pub fn new() -> Self {
-        Self {stuck_left: false, stuck_right: false}
+        Self {
+            stuck_left: false,
+            stuck_right: false,
+        }
     }
 }
 
@@ -55,10 +65,8 @@ pub struct PieceBundle {
     sprite_bundle: SpriteBundle,
     fall: Fall,
     piece: Piece,
-    collider: Collider
+    collider: Collider,
 }
-
-
 
 #[derive(Component)]
 pub struct Bag {
@@ -107,15 +115,16 @@ impl Bag {
 }
 
 pub fn check_for_collisions(
-    mut fall_query: Query<(&Transform, &mut Fall, Option<&mut Controllable>)>,
+    mut fall_query: Query<(Entity, &Transform, &mut Fall, Option<&mut Controllable>)>,
     collider_query: Query<&Transform, With<Collider>>,
-    mut collision_event: EventWriter<CollisionEvent>,
+    // mut collision_event: EventWriter<CollisionEvent>,
+    mut next_piece_event: EventWriter<NextPieceEvent>,
 ) {
-    for (fall_transform, mut fall, mut maybe_controllable) in fall_query.iter_mut() {
+    for (entity, mut fall_transform, mut fall, mut maybe_controllable) in fall_query.iter_mut() {
         if let Some(ref mut controllable) = maybe_controllable {
             controllable.stuck_right = false;
             controllable.stuck_left = false;
-        } 
+        }
         for collider_transform in collider_query.iter() {
             let collision = collide(
                 fall_transform.translation,
@@ -123,50 +132,54 @@ pub fn check_for_collisions(
                 collider_transform.translation,
                 vec2(collider_transform.scale.x, collider_transform.scale.y),
             );
-    
+
+            let offset = fall_transform.translation
+                - collider_transform.translation
+                + fall_transform.scale
+                + collider_transform.scale;
+            // collision_event.send(CollisionEvent::new(entity, offset));
+
             if let Some(collision) = collision {
                 match collision {
                     Collision::Top => {
                         fall.state = FallState::Stopped;
-                        if let Some(_) = maybe_controllable {
-                            collision_event.send(CollisionEvent::CurrentPiece);
-                        } 
+                        if maybe_controllable.is_some() {
+                            next_piece_event.send_default();
+                        }
                     }
                     Collision::Left => {
                         if let Some(ref mut controllable) = maybe_controllable {
                             controllable.stuck_right = true;
-                        } 
+                        }
                     }
                     Collision::Right => {
                         if let Some(ref mut controllable) = maybe_controllable {
                             controllable.stuck_left = true;
-                        } 
+                        }
                     }
-                    _ => ()
+                    _ => (),
                 }
             }
-            if let Some(Collision::Top) = collision {
-            }
+            if let Some(Collision::Top) = collision {}
         }
     }
 }
 
-pub fn current_piece_stopped(
+pub fn spawn_next_piece(
     mut commands: Commands,
-    mut event_reader: EventReader<CollisionEvent>,
+    mut event_reader: EventReader<NextPieceEvent>,
     mut query_bag: Query<&mut Bag>,
     mut query_active: Query<(Entity, &mut Controllable)>,
 ) {
     let mut flag = false;
-    for event in event_reader.read() {
-        if let CollisionEvent::CurrentPiece = event {
-            flag = true;
-        }
+    for _ in event_reader.read() {
+        flag = true;
     }
+    println!("{}", query_active.iter().len());
     if flag {
-        let (active_entity, _) = query_active.single_mut(); 
+        let (active_entity, _) = query_active.single_mut();
         commands.entity(active_entity).remove::<Controllable>();
-        let mut bag = query_bag.single_mut(); 
+        let mut bag = query_bag.single_mut();
         commands.spawn((bag.new_piece(vec3(0., 200., 0.)), Controllable::new()));
     }
 }
@@ -185,9 +198,12 @@ pub fn move_active_piece(
         transform.translation.x += PIECE_LATERAL_SPEED * time.delta_seconds();
         controllable.stuck_left = false;
     }
-    if keyboard_input.pressed(KeyCode::Down) {
-        fall.state = FallState::Fast;
-    } else {
-        fall.state = FallState::Normal;
+
+    if let FallState::Normal | FallState::Fast = fall.state {
+        if keyboard_input.pressed(KeyCode::Down) {
+            fall.state = FallState::Fast;
+        } else {
+            fall.state = FallState::Normal;
+        }
     }
 }
