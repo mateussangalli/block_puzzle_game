@@ -117,8 +117,7 @@ impl Bag {
 pub fn check_for_collisions(
     mut fall_query: Query<(Entity, &Transform, &mut Fall, Option<&mut Controllable>)>,
     collider_query: Query<&Transform, With<Collider>>,
-    // mut collision_event: EventWriter<CollisionEvent>,
-    mut next_piece_event: EventWriter<NextPieceEvent>,
+    mut collision_event: EventWriter<CollisionEvent>,
 ) {
     for (entity, mut fall_transform, mut fall, mut maybe_controllable) in fall_query.iter_mut() {
         if let Some(ref mut controllable) = maybe_controllable {
@@ -133,34 +132,45 @@ pub fn check_for_collisions(
                 vec2(collider_transform.scale.x, collider_transform.scale.y),
             );
 
-            let offset = fall_transform.translation
-                - collider_transform.translation
-                + fall_transform.scale
-                + collider_transform.scale;
-            // collision_event.send(CollisionEvent::new(entity, offset));
-
             if let Some(collision) = collision {
-                match collision {
-                    Collision::Top => {
-                        fall.state = FallState::Stopped;
-                        if maybe_controllable.is_some() {
-                            next_piece_event.send_default();
-                        }
-                    }
-                    Collision::Left => {
-                        if let Some(ref mut controllable) = maybe_controllable {
-                            controllable.stuck_right = true;
-                        }
-                    }
-                    Collision::Right => {
-                        if let Some(ref mut controllable) = maybe_controllable {
-                            controllable.stuck_left = true;
-                        }
-                    }
-                    _ => (),
-                }
+                let mut offset = (fall_transform.scale + collider_transform.scale) * 0.5
+                    - (fall_transform.translation - collider_transform.translation).abs();
+                offset.z = 0.;
+                collision_event.send(CollisionEvent::new(entity, offset, collision));
             }
-            if let Some(Collision::Top) = collision {}
+        }
+    }
+}
+
+pub fn handle_collisions(
+    mut event_reader: EventReader<CollisionEvent>,
+    mut query: Query<(&mut Transform, &mut Fall, Option<&mut Controllable>)>,
+    mut next_piece_event: EventWriter<NextPieceEvent>,
+) {
+    for event in event_reader.read() {
+        if let Ok((mut transform, mut fall, mut maybe_controllable)) = query.get_mut(event.entity) {
+            match event.collision {
+                Collision::Top => {
+                    fall.state = FallState::Stopped;
+                    if maybe_controllable.is_some() {
+                        next_piece_event.send_default();
+                    }
+                    transform.translation.y += event.offset.y;
+                }
+                Collision::Left => {
+                    if let Some(ref mut controllable) = maybe_controllable {
+                        controllable.stuck_right = true;
+                    }
+                    transform.translation.x -= event.offset.x;
+                }
+                Collision::Right => {
+                    if let Some(ref mut controllable) = maybe_controllable {
+                        controllable.stuck_left = true;
+                    }
+                    transform.translation.x += event.offset.x;
+                }
+                _ => (),
+            }
         }
     }
 }
@@ -175,7 +185,6 @@ pub fn spawn_next_piece(
     for _ in event_reader.read() {
         flag = true;
     }
-    println!("{}", query_active.iter().len());
     if flag {
         let (active_entity, _) = query_active.single_mut();
         commands.entity(active_entity).remove::<Controllable>();

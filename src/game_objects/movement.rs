@@ -33,11 +33,12 @@ pub struct Collider;
 pub struct CollisionEvent {
     pub entity: Entity,
     pub offset: Vec3,
+    pub collision: Collision
 }
 
 impl CollisionEvent {
-    pub fn new(entity: Entity, offset: Vec3) -> Self {
-        Self {entity, offset}
+    pub fn new(entity: Entity, offset: Vec3, collision: Collision) -> Self {
+        Self {entity, offset, collision}
     }
 }
 

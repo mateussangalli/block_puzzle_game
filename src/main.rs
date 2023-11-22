@@ -5,18 +5,19 @@ use bevy::{math::vec3, prelude::*};
 
 use game_objects::{
     movement::{update_fall, CollisionEvent},
-    piece::{check_for_collisions, spawn_next_piece, Bag, move_active_piece, NextPieceEvent},
+    piece::{
+        check_for_collisions, move_active_piece, spawn_next_piece, Bag,
+        Controllable, NextPieceEvent, handle_collisions
+    },
     wall::{WallBundle, WallLocation},
 };
-
-use crate::game_objects::piece::Controllable;
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
         .add_systems(PostStartup, spawn_first_piece)
-        // .add_event::<CollisionEvent>()
+        .add_event::<CollisionEvent>()
         .add_event::<NextPieceEvent>()
         .add_systems(
             FixedUpdate,
@@ -24,6 +25,7 @@ fn main() {
                 move_active_piece,
                 update_fall,
                 check_for_collisions,
+                handle_collisions,
                 spawn_next_piece,
             )
                 .chain(),
