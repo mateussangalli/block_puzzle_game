@@ -3,50 +3,14 @@ mod game_objects;
 
 use bevy::{math::vec3, prelude::*};
 
-use game_objects::{
-    movement::{update_fall, CollisionEvent},
-    piece::{
-        check_for_collisions, move_active_piece, spawn_next_piece, Bag,
-        Controllable, NextPieceEvent, handle_collisions
-    },
-    wall::{WallBundle, WallLocation},
-};
+use game_objects::piece::{spawn_piece, setup};
+
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(PostStartup, spawn_first_piece)
-        .add_event::<CollisionEvent>()
-        .add_event::<NextPieceEvent>()
-        .add_systems(
-            FixedUpdate,
-            (
-                move_active_piece,
-                update_fall,
-                check_for_collisions,
-                handle_collisions,
-                spawn_next_piece,
-            )
-                .chain(),
-        )
+        .add_systems(PostStartup, spawn_piece)
         .run();
 }
 
-#[derive(Component)]
-struct Collider;
-
-fn setup(mut commands: Commands) {
-    commands.spawn(Camera2dBundle::default());
-
-    commands.spawn(Bag::new());
-
-    commands.spawn(WallBundle::new(WallLocation::Left));
-    commands.spawn(WallBundle::new(WallLocation::Right));
-    commands.spawn(WallBundle::new(WallLocation::Bottom));
-}
-
-fn spawn_first_piece(mut commands: Commands, mut query: Query<&mut Bag>) {
-    let mut bag = query.single_mut();
-    commands.spawn((bag.new_piece(vec3(0., 200., 0.)), Controllable::new()));
-}

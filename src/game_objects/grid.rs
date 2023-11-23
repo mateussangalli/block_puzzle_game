@@ -1,5 +1,5 @@
 use std::ops::{Index, IndexMut};
-use bevy::prelude::{Component, Vec2};
+use bevy::{prelude::{Component, Vec2, Vec3}, math::vec3};
 
 #[derive(Component)]
 pub struct Grid<T> {
@@ -10,10 +10,32 @@ pub struct Grid<T> {
     left_bottom_corner: Vec2
 }
 
+#[derive(Component, Clone, Copy)]
+pub struct GridPosition {
+    row: usize,
+    col: usize
+}
+
+impl GridPosition {
+    pub fn new(row: usize, col: usize) -> Self {
+        Self {row, col}
+    }
+
+    pub fn translate(&self, row: usize, col: usize) -> Self {
+        Self {row: self.row + row, col: self.col + col}
+    }
+}
+
 impl<T> Grid<T> {
     pub fn new(height: usize, width: usize, data: Vec<T>, cell_size: f32, left_bottom_corner: Vec2) -> Self {
         assert!(width * height == data.len());
         Self { height, width, data, cell_size, left_bottom_corner }
+    }
+
+    pub fn position_to_vec3(&self, grid_position: GridPosition) -> Vec3 {
+        let x = self.left_bottom_corner.x + self.cell_size * (grid_position.col as f32);
+        let y = self.left_bottom_corner.y + self.cell_size * (grid_position.row as f32);
+        vec3(x, y, 0.)
     }
 }
 

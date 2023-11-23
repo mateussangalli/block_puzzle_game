@@ -1,4 +1,3 @@
-pub mod piece;
-pub mod movement;
-pub mod wall;
 pub mod grid;
+pub mod piece;
+pub mod fall;
