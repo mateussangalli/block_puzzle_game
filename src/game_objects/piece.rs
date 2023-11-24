@@ -7,7 +7,11 @@ use rand::{rngs::StdRng, RngCore, SeedableRng};
 use crate::game_objects::{
     fall::Fall,
     grid::{Grid, GridPosition},
+    movement::InputTimer
 };
+
+const REPEAT_DELAY: f32 = 0.03;
+const START_DELAY: f32 = 0.1;
 
 const PIECE_SIZE: f32 = 32.;
 const PIECE_FALL_SPEED: f32 = 150.;
@@ -109,15 +113,13 @@ impl Bag {
     }
 }
 
-type GameGrid = Grid<Option<Piece>>;
+pub type GameGrid = Grid<Option<Piece>>;
 
 pub fn spawn_piece(
     mut commands: Commands,
-    mut query_bag: Query<&mut Bag>,
-    mut query_grid: Query<&GameGrid>,
+    mut query: Query<(&mut Bag, &GameGrid)>,
 ) {
-    let mut bag = query_bag.single_mut();
-    let mut grid = query_grid.single_mut();
+    let (mut bag, grid) = query.single_mut();
     let grid_position = GridPosition::new(STARTING_ROW, STARTING_COL);
 
     println!("Spawning piece");
@@ -130,13 +132,17 @@ pub fn spawn_piece(
 pub fn setup(mut commands: Commands) {
     commands.spawn(Camera2dBundle::default());
 
-    commands.spawn(Bag::new());
+    let bag = Bag::new();
 
-    commands.spawn(GameGrid::new(
+    let grid = GameGrid::new(
         GRID_HEIGHT,
         GRID_WIDTH,
         vec![None; GRID_WIDTH * GRID_HEIGHT],
         PIECE_SIZE,
         LEFT_BOTTOM_CORNER,
-    ));
+    );
+
+    let input_timer = InputTimer::new(REPEAT_DELAY, START_DELAY);
+
+    commands.spawn((bag, grid, input_timer));
 }
