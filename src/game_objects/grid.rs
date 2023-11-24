@@ -39,6 +39,17 @@ impl<T> Grid<T> {
     }
 }
 
+impl<T> Grid<Option<T>> {
+    pub fn left_is_empty(&self, grid_position: GridPosition) -> bool {
+        self[grid_position.row][grid_position.col - 1].is_none()
+    }
+
+    pub fn right_is_empty(&self, grid_position: GridPosition) -> bool {
+        self[grid_position.row][grid_position.col + 1].is_none()
+    }
+}
+
+
 impl<T> Index<usize> for Grid<T> {
     type Output = [T];
     fn index(&self, index: usize) -> &[T] {
