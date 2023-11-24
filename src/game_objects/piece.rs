@@ -17,9 +17,9 @@ const PIECE_SIZE: f32 = 32.;
 const PIECE_FALL_SPEED: f32 = 150.;
 const PIECE_LATERAL_SPEED: f32 = 400.;
 
-const STARTING_ROW: usize = 20;
+const STARTING_ROW: usize = 19;
 const STARTING_COL: usize = 5;
-const GRID_HEIGHT: usize = 19;
+const GRID_HEIGHT: usize = 20;
 const GRID_WIDTH: usize = 10;
 const LEFT_BOTTOM_CORNER: Vec2 = vec2(-200., -400.);
 

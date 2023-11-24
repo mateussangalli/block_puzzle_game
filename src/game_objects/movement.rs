@@ -71,9 +71,31 @@ impl InputTimer {
 }
 
 pub fn move_active(
-    query_piece: Query<(&mut Transform, &mut GridPosition, &Controllable)>,
-    query_grid: Query<&GameGrid>,
+    mut query_piece: Query<(&mut Transform, &mut GridPosition, &Controllable)>,
+    mut query_grid: Query<(&GameGrid, &mut InputTimer)>,
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
+    let (grid, mut input_timer) = query_grid.single_mut();
+
+    let (mut transform, mut position, _) = query_piece.single_mut(); 
+
+    let key_timer;
+    if keyboard_input.pressed(KeyCode::Right) {
+        key_timer = input_timer.update(Some(KeyCode::Right), time.delta_seconds());
+    } else if keyboard_input.pressed(KeyCode::Left) {
+        key_timer = input_timer.update(Some(KeyCode::Left), time.delta_seconds());
+    } else {
+        key_timer = input_timer.update(None, time.delta_seconds());
+    }
+
+    match key_timer {
+        Some(KeyCode::Right) => {
+            grid.move_right(transform, position);
+        }
+        Some(KeyCode::Left) => {
+            grid.move_left(transform, position);
+        }
+        _ => ()
+    };
 }
