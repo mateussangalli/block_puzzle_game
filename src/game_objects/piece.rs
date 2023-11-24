@@ -7,7 +7,7 @@ use rand::{rngs::StdRng, RngCore, SeedableRng};
 use crate::game_objects::{
     fall::Fall,
     grid::{Grid, GridPosition},
-    movement::InputTimer
+    movement::InputTimer,
 };
 
 const REPEAT_DELAY: f32 = 0.03;
@@ -15,13 +15,12 @@ const START_DELAY: f32 = 0.1;
 
 const PIECE_SIZE: f32 = 32.;
 const PIECE_FALL_SPEED: f32 = 150.;
-const PIECE_LATERAL_SPEED: f32 = 400.;
 
 const STARTING_ROW: usize = 19;
 const STARTING_COL: usize = 5;
 const GRID_HEIGHT: usize = 20;
 const GRID_WIDTH: usize = 10;
-const LEFT_BOTTOM_CORNER: Vec2 = vec2(-200., -400.);
+const LEFT_BOTTOM_CORNER: Vec2 = vec2(-200., -300.);
 
 const RED: Color = Color::rgb(1., 0., 0.);
 const BLUE: Color = Color::rgb(0., 0., 1.);
@@ -115,10 +114,7 @@ impl Bag {
 
 pub type GameGrid = Grid<Option<Piece>>;
 
-pub fn spawn_piece(
-    mut commands: Commands,
-    mut query: Query<(&mut Bag, &GameGrid)>,
-) {
+pub fn spawn_piece(mut commands: Commands, mut query: Query<(&mut Bag, &GameGrid)>) {
     let (mut bag, grid) = query.single_mut();
     let grid_position = GridPosition::new(STARTING_ROW, STARTING_COL);
 
@@ -145,4 +141,29 @@ pub fn setup(mut commands: Commands) {
     let input_timer = InputTimer::new(REPEAT_DELAY, START_DELAY);
 
     commands.spawn((bag, grid, input_timer));
+}
+
+pub fn spawn_next_piece(
+    mut commands: Commands,
+    mut next_piece_event: EventReader<NextPieceEvent>,
+    mut query_entity: Query<Entity, With<Controllable>>,
+    mut query_bag: Query<(&mut Bag, &GameGrid)>,
+) {
+    let mut flag = false;
+    for event in next_piece_event.read() {
+        flag = true;
+    }
+
+    if flag {
+        let entity = query_entity.single_mut();
+        commands.entity(entity).remove::<Controllable>();
+
+        let (mut bag, grid) = query_bag.single_mut();
+        let start_position = GridPosition::new(STARTING_ROW, STARTING_COL);
+        let start_translation = grid.position_to_vec3(start_position);
+        commands.spawn((
+            bag.new_piece(start_position, start_translation),
+            Controllable,
+        ));
+    }
 }

@@ -2,7 +2,7 @@ use bevy::{
     math::vec3,
     prelude::{Component, Mut, Transform, Vec2, Vec3},
 };
-use std::ops::{Index, IndexMut};
+use std::{ops::{Index, IndexMut}, fmt::Display};
 
 #[derive(Component)]
 pub struct Grid<T> {
@@ -13,7 +13,7 @@ pub struct Grid<T> {
     left_bottom_corner: Vec2,
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct GridPosition {
     pub row: usize,
     pub col: usize,
@@ -55,6 +55,16 @@ impl<T> Grid<T> {
         let y = self.left_bottom_corner.y + self.cell_size * (grid_position.row as f32);
         vec3(x, y, 0.)
     }
+
+    pub fn vec3_to_position(&self, vector: Vec3) -> GridPosition {
+        let col = ((vector.x - self.left_bottom_corner.x) / self.cell_size).round() as usize;
+        let row = ((vector.y - self.left_bottom_corner.y) / self.cell_size).round() as usize;
+        GridPosition::new(row, col)
+    }
+
+    pub fn place_cell(&mut self, grid_position: GridPosition, value: T) {
+        self[grid_position.row][grid_position.col] = value;
+    }
 }
 
 impl<T> Grid<Option<T>> {
@@ -65,6 +75,11 @@ impl<T> Grid<Option<T>> {
     pub fn right_is_empty(&self, grid_position: GridPosition) -> bool {
         (grid_position.col < self.width - 1)
             && self[grid_position.row][grid_position.col + 1].is_none()
+    }
+
+    pub fn below_is_empty(&self, grid_position: GridPosition) -> bool {
+        (grid_position.row > 0)
+            && self[grid_position.row - 1][grid_position.col].is_none()
     }
 
     pub fn move_right(&self, mut transform: Mut<Transform>, mut grid_position: Mut<GridPosition>) {

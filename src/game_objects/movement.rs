@@ -1,4 +1,4 @@
-use crate::game_objects::grid::GridPosition;
+use crate::game_objects::{grid::GridPosition, fall::{Fall, FallState}};
 use crate::game_objects::piece::{Controllable, GameGrid};
 use bevy::prelude::*;
 
@@ -71,14 +71,14 @@ impl InputTimer {
 }
 
 pub fn move_active(
-    mut query_piece: Query<(&mut Transform, &mut GridPosition, &Controllable)>,
+    mut query_piece: Query<(&mut Transform, &mut GridPosition, &mut Fall), With<Controllable>>,
     mut query_grid: Query<(&GameGrid, &mut InputTimer)>,
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
     let (grid, mut input_timer) = query_grid.single_mut();
 
-    let (mut transform, mut position, _) = query_piece.single_mut(); 
+    let (mut transform, mut position, mut fall) = query_piece.single_mut(); 
 
     let key_timer;
     if keyboard_input.pressed(KeyCode::Right) {
@@ -98,4 +98,10 @@ pub fn move_active(
         }
         _ => ()
     };
+
+    match (fall.state, keyboard_input.pressed(KeyCode::Down)) {
+        (FallState::Normal, true) => fall.state = FallState::Fast,
+        (FallState::Fast, false) => fall.state = FallState::Normal,
+        _ => (),
+    }
 }
