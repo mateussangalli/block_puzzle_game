@@ -42,6 +42,7 @@ impl Fall {
 
 pub fn update_fall_piece(
     mut query_piece: Query<(
+        Entity,
         &mut Transform,
         &mut GridPosition,
         &mut Fall,
@@ -52,7 +53,7 @@ pub fn update_fall_piece(
 ) {
     let mut grid = query_grid.single_mut();
     
-    for (mut transform, mut position, mut fall, piece) in query_piece.iter_mut() {
+    for (entity, mut transform, mut position, mut fall, piece) in query_piece.iter_mut() {
         transform.translation.y -= time.delta_seconds() * fall.get_velocity();
         *position = grid.vec3_to_position(transform.translation);
         let discretized_position = grid.position_to_vec3(*position);
@@ -60,7 +61,7 @@ pub fn update_fall_piece(
             transform.translation = discretized_position;
             fall.state = FallState::Stopped;
     
-            grid.place_cell(*position, Some(*piece));
+            grid.place_cell(*position, Some(entity));
         }
     }
 }

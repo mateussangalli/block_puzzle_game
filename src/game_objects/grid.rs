@@ -1,6 +1,6 @@
 use bevy::{
     math::vec3,
-    prelude::{Component, Mut, Transform, Vec2, Vec3},
+    prelude::{Component, Mut, Transform, Vec2, Vec3, Entity},
 };
 use std::{ops::{Index, IndexMut}, task::Wake};
 
@@ -150,7 +150,7 @@ impl<T> IndexMut<[isize; 2]> for Grid<T> {
     }
 }
 
-pub type GameGrid = Grid<Option<Piece>>;
+pub type GameGrid = Grid<Option<Entity>>;
 
 #[cfg(test)]
 mod tests {
