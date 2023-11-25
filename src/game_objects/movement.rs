@@ -1,9 +1,10 @@
-use crate::game_objects::{grid::GridPosition, fall::{Fall, FallState}};
-use crate::game_objects::piece::{Controllable, GameGrid};
+use std::task::Wake;
+
+use crate::game_objects::{grid::{GridPosition, GameGrid}, fall::{Fall, FallState}, piece::{Pair, PieceOrder}};
 use bevy::prelude::*;
 
 #[derive(Component)]
-pub struct InputTimer {
+pub struct DASTimer {
     start_timer: f32,
     repeat_timer: f32,
     repeat_delay: f32,
@@ -11,7 +12,7 @@ pub struct InputTimer {
     key_pressed: Option<KeyCode>,
 }
 
-impl InputTimer {
+impl DASTimer {
     pub fn new(repeat_delay: f32, start_delay: f32) -> Self {
         Self {
             repeat_delay,
@@ -70,15 +71,15 @@ impl InputTimer {
     }
 }
 
-pub fn move_active(
-    mut query_piece: Query<(&mut Transform, &mut GridPosition, &mut Fall), With<Controllable>>,
-    mut query_grid: Query<(&GameGrid, &mut InputTimer)>,
+pub fn move_pair(
+    mut query_pair: Query<(&mut Transform, &mut GridPosition, &mut Fall, &mut Pair)>,
+    mut query_grid: Query<(&GameGrid, &mut DASTimer)>,
     keyboard_input: Res<Input<KeyCode>>,
     time: Res<Time>,
 ) {
     let (grid, mut input_timer) = query_grid.single_mut();
 
-    let (mut transform, mut position, mut fall) = query_piece.single_mut(); 
+    let (mut transform, mut position, mut fall, mut pair) = query_pair.single_mut(); 
 
     let key_timer;
     if keyboard_input.pressed(KeyCode::Right) {
@@ -91,10 +92,10 @@ pub fn move_active(
 
     match key_timer {
         Some(KeyCode::Right) => {
-            grid.move_right(transform, position);
+            grid.move_right_pair(*pair, transform.as_mut(), position.as_mut());
         }
         Some(KeyCode::Left) => {
-            grid.move_left(transform, position);
+            grid.move_left_pair(*pair, transform.as_mut(), position.as_mut());
         }
         _ => ()
     };
@@ -103,5 +104,24 @@ pub fn move_active(
         (FallState::Normal, true) => fall.state = FallState::Fast,
         (FallState::Fast, false) => fall.state = FallState::Normal,
         _ => (),
+    }
+}
+
+pub fn rotate_pair(
+    mut query_pair: Query<(&mut GridPosition, &mut Pair, &Children)>,
+    mut query_transforms: Query<(&mut Transform, &PieceOrder)>,
+    query_grid: Query<&GameGrid>,
+    keyboard_input: Res<Input<KeyCode>>,
+) {
+    let (mut position, mut pair, children) = query_pair.single_mut(); 
+    let grid = query_grid.single();
+
+    if keyboard_input.just_released(KeyCode::D) && grid.can_turn_clockwise(*pair, *position){
+        *pair.as_mut() = pair.turn_clockwise();
+        for &child in children.iter() {
+            if let Ok((mut transform, order)) = query_transforms.get_mut(child) {
+                pair.adjust_transform(transform.as_mut(), *order);
+            }
+        }
     }
 }

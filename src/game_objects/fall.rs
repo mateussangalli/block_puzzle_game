@@ -3,7 +3,7 @@ use std::task::Wake;
 use bevy::{prelude::*, math::vec2, sprite::collide_aabb::Collision};
 use bevy::sprite::collide_aabb::collide;
 
-use crate::game_objects::{grid::GridPosition, piece::{Controllable, GameGrid, NextPieceEvent, Piece}};
+use crate::game_objects::{grid::{GridPosition, GameGrid}, piece::{Controllable, NextPieceEvent, Piece}};
 
 const FAST_MULT: f32 = 3.;
 
@@ -49,7 +49,7 @@ pub fn update_fall(
         transform.translation.y -= time.delta_seconds() * fall.get_velocity();
         *position = grid.vec3_to_position(transform.translation);
         let discretized_position = grid.position_to_vec3(*position);
-        if !grid.below_is_empty(*position) && (transform.translation.y < discretized_position.y){
+        if !grid.can_move_down(*position) && (transform.translation.y < discretized_position.y){
             transform.translation = discretized_position;
             fall.state = FallState::Stopped;
             if maybe_controllable.is_some() {
