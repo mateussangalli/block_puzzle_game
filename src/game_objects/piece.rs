@@ -1,3 +1,5 @@
+use std::task::Wake;
+
 use bevy::{
     math::{vec2, vec3},
     prelude::*,
@@ -55,13 +57,34 @@ pub struct Piece {
 pub struct Controllable;
 
 #[derive(Event, Default)]
-pub struct NextPieceEvent;
+pub struct PairLandedEvent;
 
 #[derive(Bundle)]
 pub struct PieceBundle {
     color: PieceColor,
     sprite_bundle: SpriteBundle,
     piece: Piece,
+}
+
+impl PieceBundle {
+    pub fn new(color: PieceColor, position: Vec3) -> Self {
+        PieceBundle {
+            color,
+            sprite_bundle: SpriteBundle {
+                sprite: Sprite {
+                    color: color.get_color(),
+                    ..default()
+                },
+                transform: Transform {
+                    translation: position,
+                    scale: Vec3::new(PIECE_SIZE, PIECE_SIZE, 1.0),
+                    ..default()
+                },
+                ..default()
+            },
+            piece: Piece { color },
+        }
+    }
 }
 
 #[derive(Component)]
@@ -89,22 +112,7 @@ impl Bag {
 
     pub fn new_piece(&mut self, position: Vec3) -> PieceBundle {
         let color = self.piece_color();
-        PieceBundle {
-            color,
-            sprite_bundle: SpriteBundle {
-                sprite: Sprite {
-                    color: color.get_color(),
-                    ..default()
-                },
-                transform: Transform {
-                    translation: position,
-                    scale: Vec3::new(PIECE_SIZE, PIECE_SIZE, 1.0),
-                    ..default()
-                },
-                ..default()
-            },
-            piece: Piece { color },
-        }
+        PieceBundle::new(color, position)
     }
 }
 
@@ -201,9 +209,14 @@ pub fn setup(mut commands: Commands) {
 
     let input_timer = DASTimer::new(REPEAT_DELAY, START_DELAY);
 
-    let grid_middle = LEFT_BOTTOM_CORNER + PIECE_SIZE * 0.5 * vec2((GRID_WIDTH-1) as f32, (GRID_HEIGHT-1) as f32);
+    let grid_middle = LEFT_BOTTOM_CORNER
+        + PIECE_SIZE * 0.5 * vec2((GRID_WIDTH - 1) as f32, (GRID_HEIGHT - 1) as f32);
     let grid_middle = vec3(grid_middle.x, grid_middle.y, -1.);
-    let grid_size = vec3(PIECE_SIZE * GRID_WIDTH as f32, PIECE_SIZE * GRID_HEIGHT as f32, 1.);
+    let grid_size = vec3(
+        PIECE_SIZE * GRID_WIDTH as f32,
+        PIECE_SIZE * GRID_HEIGHT as f32,
+        1.,
+    );
     let grid_background = SpriteBundle {
         sprite: Sprite {
             color: Color::DARK_GRAY,
@@ -222,25 +235,57 @@ pub fn setup(mut commands: Commands) {
 
 pub fn spawn_next_piece(
     mut commands: Commands,
-    mut next_piece_event: EventReader<NextPieceEvent>,
-    mut query_entity: Query<Entity, With<Controllable>>,
+    mut land_event: EventReader<PairLandedEvent>,
+    query_entity: Query<(Entity, &GridPosition, &Pair, &Children)>,
+    query_children: Query<(Entity, &Piece, &PieceOrder)>,
     mut query_bag: Query<(&mut Bag, &GameGrid)>,
 ) {
-    // let mut flag = false;
-    // for event in next_piece_event.read() {
-    //     flag = true;
-    // }
-    //
-    // if flag {
-    //     let entity = query_entity.single_mut();
-    //     commands.entity(entity).remove::<Controllable>();
-    //
-    //     let (mut bag, grid) = query_bag.single_mut();
-    //     let start_position = GridPosition::new(STARTING_ROW, STARTING_COL);
-    //     let start_translation = grid.position_to_vec3(start_position);
-    //     commands.spawn((
-    //         bag.new_piece(start_position, start_translation),
-    //         Controllable,
-    //     ));
-    // }
+    let mut flag = false;
+    for event in land_event.read() {
+        flag = true;
+    }
+
+    if flag {
+        let (mut bag, grid) = query_bag.single_mut();
+        let (entity_pair, position1, pair, children) = query_entity.single();
+        let position2 = pair.get_second_position(*position1);
+
+        for &child in children.iter() {
+            match query_children.get(child) {
+                Ok((entity, piece, PieceOrder::First)) => {
+                    commands.spawn((
+                        PieceBundle::new(piece.color, grid.position_to_vec3(*position1)),
+                        *position1,
+                        Fall::new(PIECE_FALL_SPEED),
+                    ));
+                    commands.get_entity(entity).unwrap().despawn();
+                }
+                Ok((entity, piece, PieceOrder::Second)) => {
+                    commands.spawn((
+                        PieceBundle::new(piece.color, grid.position_to_vec3(position2)),
+                        position2,
+                        Fall::new(PIECE_FALL_SPEED),
+                    ));
+                    commands.get_entity(entity).unwrap().despawn();
+                }
+                _ => (),
+            }
+        }
+
+        commands.entity(entity_pair).remove::<Pair>();
+
+        let starting_position = GridPosition::new(STARTING_ROW, STARTING_COL);
+        commands
+            .spawn((
+                Pair::new(),
+                Fall::new(PIECE_FALL_SPEED),
+                Transform::from_translation(grid.position_to_vec3(starting_position)),
+                GlobalTransform::IDENTITY,
+                starting_position,
+            ))
+            .with_children(|parent| {
+                parent.spawn((PieceOrder::First, bag.new_piece(vec3(0., 0., 0.))));
+                parent.spawn((PieceOrder::Second, bag.new_piece(vec3(0., -PIECE_SIZE, 0.))));
+            });
+    }
 }
