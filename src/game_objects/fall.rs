@@ -40,34 +40,29 @@ impl Fall {
     }
 }
 
-pub fn update_fall(
+pub fn update_fall_piece(
     mut query_piece: Query<(
         &mut Transform,
         &mut GridPosition,
         &mut Fall,
         &Piece,
-        Option<&Controllable>,
     )>,
     mut query_grid: Query<&mut GameGrid>,
     time: Res<Time>,
-    mut next_piece_event: EventWriter<PairLandedEvent>,
 ) {
-    // let mut grid = query_grid.single_mut();
-    //
-    // for (mut transform, mut position, mut fall, piece, maybe_controllable) in query_piece.iter_mut() {
-    //     transform.translation.y -= time.delta_seconds() * fall.get_velocity();
-    //     *position = grid.vec3_to_position(transform.translation);
-    //     let discretized_position = grid.position_to_vec3(*position);
-    //     if !grid.can_move_down(*position) && (transform.translation.y < discretized_position.y){
-    //         transform.translation = discretized_position;
-    //         fall.state = FallState::Stopped;
-    //         if maybe_controllable.is_some() {
-    //             next_piece_event.send_default();
-    //         }
-    //
-    //         grid.place_cell(*position, Some(*piece));
-    //     }
-    // }
+    let mut grid = query_grid.single_mut();
+    
+    for (mut transform, mut position, mut fall, piece) in query_piece.iter_mut() {
+        transform.translation.y -= time.delta_seconds() * fall.get_velocity();
+        *position = grid.vec3_to_position(transform.translation);
+        let discretized_position = grid.position_to_vec3(*position);
+        if !grid.can_move_down(*position) && (transform.translation.y < discretized_position.y){
+            transform.translation = discretized_position;
+            fall.state = FallState::Stopped;
+    
+            grid.place_cell(*position, Some(*piece));
+        }
+    }
 }
 
 pub fn update_fall_pair(
