@@ -111,17 +111,19 @@ pub fn rotate_pair(
     mut query_pair: Query<(&mut GridPosition, &mut Pair, &Children)>,
     mut query_transforms: Query<(&mut Transform, &PieceOrder)>,
     query_grid: Query<&GameGrid>,
-    keyboard_input: Res<Input<KeyCode>>,
+    mut keyboard_input: ResMut<Input<KeyCode>>,
 ) {
     let (mut position, mut pair, children) = query_pair.single_mut(); 
     let grid = query_grid.single();
 
     if keyboard_input.just_released(KeyCode::D) && grid.can_turn_clockwise(*pair, *position){
         *pair.as_mut() = pair.turn_clockwise();
+
         for &child in children.iter() {
             if let Ok((mut transform, order)) = query_transforms.get_mut(child) {
                 pair.adjust_transform(transform.as_mut(), *order);
             }
         }
+        keyboard_input.clear_just_released(KeyCode::D);
     }
 }
