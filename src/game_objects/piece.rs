@@ -195,6 +195,10 @@ pub fn spawn_piece(mut commands: Commands, mut query: Query<(&mut Bag, &GameGrid
     println!("Spawning piece");
     commands
         .spawn((
+            VisibilityBundle {
+                visibility: Visibility::Visible,
+                ..default()
+            },
             Pair::new(),
             Fall::new(PIECE_FALL_SPEED),
             Transform::from_translation(grid.position_to_vec3(grid_position)),
@@ -292,6 +296,10 @@ pub fn spawn_next_piece(
         let starting_position = GridPosition::new(STARTING_ROW, STARTING_COL);
         commands
             .spawn((
+                VisibilityBundle {
+                    visibility: Visibility::Visible,
+                    ..default()
+                },
                 Pair::new(),
                 Fall::new(PIECE_FALL_SPEED),
                 Transform::from_translation(grid.position_to_vec3(starting_position)),
@@ -347,7 +355,7 @@ pub fn check_connected(
 
                 if let Ok(mut fall) = query_fall.get_mut(entity) {
                     fall.state = FallState::Normal;
-                    println!("{row}, {col}")
+                    // println!("{row}, {col}")
                 }
             }
         }
