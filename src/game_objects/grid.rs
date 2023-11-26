@@ -1,10 +1,14 @@
 use bevy::{
     math::vec3,
-    prelude::{Component, Mut, Transform, Vec2, Vec3, Entity},
+    prelude::{Component, Entity, Mut, Transform, Vec2, Vec3},
+    utils::HashSet,
 };
-use std::{ops::{Index, IndexMut}, task::Wake};
+use std::{
+    ops::{Index, IndexMut},
+    task::Wake,
+};
 
-use crate::game_objects::piece::{Pair, PairOrientation, Piece};
+use crate::game_objects::piece::{Pair, PairOrientation, Piece, PieceColor};
 
 #[derive(Component)]
 pub struct Grid<T> {
@@ -15,7 +19,7 @@ pub struct Grid<T> {
     pub left_bottom_corner: Vec2,
 }
 
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct GridPosition {
     value: [isize; 2],
 }
@@ -150,7 +154,71 @@ impl<T> IndexMut<[isize; 2]> for Grid<T> {
     }
 }
 
-pub type GameGrid = Grid<Option<Entity>>;
+impl<T> Index<GridPosition> for Grid<T> {
+    type Output = T;
+    fn index(&self, index: GridPosition) -> &T {
+        &self[index.value]
+    }
+}
+
+impl<T> IndexMut<GridPosition> for Grid<T> {
+    fn index_mut(&mut self, index: GridPosition) -> &mut T {
+        &mut self[index.value]
+    }
+}
+
+fn get_adjacent(position: GridPosition) -> Vec<GridPosition> {
+    vec![
+        position.translate(1, 0),
+        position.translate(-1, 0),
+        position.translate(0, 1),
+        position.translate(0, -1),
+    ]
+}
+
+fn add_position(
+    position: GridPosition,
+    conn_comp: &mut Vec<GridPosition>,
+    adjacent: &mut Vec<GridPosition>,
+    seen: &mut HashSet<GridPosition>,
+) {
+    conn_comp.push(position);
+    for p in get_adjacent(position).into_iter() {
+        if !seen.contains(&p) {
+            seen.insert(p);
+            adjacent.push(p);
+        }
+    }
+}
+
+impl<T> Grid<Option<(PieceColor, T)>> {
+    pub fn find_conn_comp(&self, initial_position: GridPosition) -> Vec<GridPosition> {
+        let initial_color;
+        match self[initial_position] {
+            None => return vec![],
+            Some((color, _)) => initial_color = color,
+        }
+
+        let mut conn_comp: Vec<GridPosition> = vec![initial_position];
+
+        let mut adjacent = get_adjacent(initial_position);
+        let mut seen = HashSet::from_iter(adjacent.clone().into_iter());
+        seen.insert(initial_position);
+
+        while let Some(position) = adjacent.pop() {
+            if !self.is_valid(position) { continue }
+            if let Some((color, _)) = self[position] {
+                if color == initial_color {
+                    add_position(position, &mut conn_comp, &mut adjacent, &mut seen);
+                }
+            }
+        }
+
+        conn_comp
+    }
+}
+
+pub type GameGrid = Grid<Option<(PieceColor, Entity)>>;
 
 #[cfg(test)]
 mod tests {
@@ -174,5 +242,24 @@ mod tests {
 
         assert!(grid.can_move_right(grid_position1));
         assert!(!grid.can_move_right(grid_position2));
+    }
+
+    #[derive(Clone, Copy)]
+    struct Dummy;
+
+    #[test]
+    fn test_conn_comp() {
+        let mut grid: Grid<Option<(PieceColor, Dummy)>> = Grid::new(2, 2, vec![None; 4], 1., vec2(1., 1.));
+        grid[[0, 0]] = Some((PieceColor::Red, Dummy));
+        grid[[0, 1]] = Some((PieceColor::Red, Dummy));
+        grid[[1, 0]] = Some((PieceColor::Blue, Dummy));
+        let initial_position = GridPosition::new(0, 0);
+
+        let expected = vec![GridPosition::new(0, 0), GridPosition::new(0, 1)];
+
+        let output = grid.find_conn_comp(initial_position);
+
+        assert!(expected == output)
+
     }
 }

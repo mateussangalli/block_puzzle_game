@@ -6,13 +6,14 @@ use bevy::{math::vec3, prelude::*};
 use crate::game_objects::{
     fall::{update_fall_pair, update_fall_piece},
     movement::{rotate_pair, move_pair},
-    piece::{spawn_next_piece, PairLandedEvent, setup, spawn_piece},
+    piece::{spawn_next_piece, PairLandedEvent, setup, spawn_piece, PieceLandedEvent},
 };
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_event::<PairLandedEvent>()
+        .add_event::<PieceLandedEvent>()
         .add_systems(Startup, setup)
         .add_systems(PostStartup, spawn_piece)
         .add_systems(

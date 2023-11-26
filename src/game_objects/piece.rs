@@ -29,7 +29,7 @@ const BLUE: Color = Color::rgb(0., 0., 1.);
 const GREEN: Color = Color::rgb(0., 1., 0.);
 const PURPLE: Color = Color::rgb(0.5, 0., 0.5);
 
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PieceColor {
     Red,
     Blue,
@@ -58,6 +58,17 @@ pub struct Controllable;
 
 #[derive(Event, Default)]
 pub struct PairLandedEvent;
+
+#[derive(Event)]
+pub struct PieceLandedEvent {
+    pub entity: Entity,
+}
+
+impl PieceLandedEvent {
+    pub fn new(entity: Entity) -> Self {
+        Self { entity }
+    }
+}
 
 #[derive(Bundle)]
 pub struct PieceBundle {
@@ -250,6 +261,7 @@ pub fn spawn_next_piece(
         let (entity_pair, position1, pair, children) = query_entity.single();
         let position2 = pair.get_second_position(*position1);
 
+        // despawn children and spawn them with commands
         for &child in children.iter() {
             match query_children.get(child) {
                 Ok((entity, piece, PieceOrder::First)) => {
@@ -274,6 +286,7 @@ pub fn spawn_next_piece(
 
         commands.entity(entity_pair).remove::<Pair>();
 
+        // spawn new piece
         let starting_position = GridPosition::new(STARTING_ROW, STARTING_COL);
         commands
             .spawn((

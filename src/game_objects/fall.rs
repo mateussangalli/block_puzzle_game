@@ -5,7 +5,7 @@ use bevy::{math::vec2, prelude::*, sprite::collide_aabb::Collision};
 
 use crate::game_objects::{
     grid::{GameGrid, GridPosition},
-    piece::{Controllable, Pair, PairLandedEvent, Piece},
+    piece::{Controllable, Pair, PairLandedEvent, Piece, PieceLandedEvent},
 };
 
 const FAST_MULT: f32 = 3.;
@@ -47,9 +47,10 @@ pub fn update_fall_piece(
         &mut GridPosition,
         &mut Fall,
         &Piece,
-    )>,
+    ), With<Piece>>,
     mut query_grid: Query<&mut GameGrid>,
     time: Res<Time>,
+    mut land_event: EventWriter<PieceLandedEvent>,
 ) {
     let mut grid = query_grid.single_mut();
     
@@ -61,7 +62,9 @@ pub fn update_fall_piece(
             transform.translation = discretized_position;
             fall.state = FallState::Stopped;
     
-            grid.place_cell(*position, Some(entity));
+            grid.place_cell(*position, Some((piece.color, entity)));
+
+            land_event.send(PieceLandedEvent::new(entity));
         }
     }
 }
