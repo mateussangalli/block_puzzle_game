@@ -6,7 +6,7 @@ use bevy::{math::vec3, prelude::*};
 use crate::game_objects::{
     fall::{update_fall_pair, update_fall_piece},
     movement::{rotate_pair, move_pair},
-    piece::{spawn_next_piece, PairLandedEvent, setup, spawn_piece, PieceLandedEvent},
+    piece::{spawn_next_piece, PairLandedEvent, setup, spawn_piece, PieceLandedEvent, check_connected},
 };
 
 fn main() {
@@ -23,6 +23,7 @@ fn main() {
                 rotate_pair,
                 update_fall_pair,
                 update_fall_piece,
+                check_connected,
                 spawn_next_piece,
             )
                 .chain(),

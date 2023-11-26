@@ -1,4 +1,4 @@
-use std::task::Wake;
+use std::{task::Wake, cmp::min};
 
 use bevy::{
     math::{vec2, vec3},
@@ -7,7 +7,7 @@ use bevy::{
 use rand::{rngs::StdRng, RngCore, SeedableRng};
 
 use crate::game_objects::{
-    fall::Fall,
+    fall::{Fall, FallState},
     grid::{GameGrid, GridPosition},
     movement::DASTimer,
 };
@@ -23,6 +23,8 @@ const STARTING_COL: isize = 5;
 const GRID_HEIGHT: usize = 20;
 const GRID_WIDTH: usize = 10;
 const LEFT_BOTTOM_CORNER: Vec2 = vec2(-200., -300.);
+
+const MIN_SIZE_SCORE: usize = 4;
 
 const RED: Color = Color::rgb(1., 0., 0.);
 const BLUE: Color = Color::rgb(0., 0., 1.);
@@ -300,5 +302,54 @@ pub fn spawn_next_piece(
                 parent.spawn((PieceOrder::First, bag.new_piece(vec3(0., 0., 0.))));
                 parent.spawn((PieceOrder::Second, bag.new_piece(vec3(0., -PIECE_SIZE, 0.))));
             });
+    }
+}
+
+pub fn check_connected(
+    mut commands: Commands,
+    mut query_grid: Query<&mut GameGrid>,
+    query_position: Query<&GridPosition>,
+    mut query_fall: Query<&mut Fall>,
+    mut land_event: EventReader<PieceLandedEvent>,
+){
+    let mut grid = query_grid.single_mut();
+    let mut conn_comps: Vec<Vec<GridPosition>> = Vec::with_capacity(land_event.len());
+
+    for event in land_event.read() {
+        if let Ok(grid_position) = query_position.get(event.entity) {
+            conn_comps.push(grid.find_conn_comp(*grid_position));
+        }
+    }
+
+    let mut min_heights = vec![grid.height as isize; grid.width];
+
+    for conn_comp in conn_comps {
+        if conn_comp.len() < MIN_SIZE_SCORE { continue }
+
+        for position in conn_comp {
+            if let Some((_, entity)) = grid[position] {
+                commands.entity(entity).despawn();
+            }
+
+            grid[position] = None;
+
+            min_heights[position.col() as usize] = min(position.row(), min_heights[position.col() as usize]);
+        }
+    }
+
+
+    for col in 0..grid.width {
+        for row in min_heights[col as usize]..(grid.height as isize) {
+            let position = GridPosition::new(row, col as isize);
+
+            if let Some((_, entity)) = grid[position] {
+                grid[position] = None;
+
+                if let Ok(mut fall) = query_fall.get_mut(entity) {
+                    fall.state = FallState::Normal;
+                    println!("{row}, {col}")
+                }
+            }
+        }
     }
 }
